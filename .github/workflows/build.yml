@@ -1,0 +1,59 @@
+name: Build KillerPDF without grain
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # daily; does nothing unless upstream shipped a new release
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for a new upstream release
+        id: v
+        shell: pwsh
+        run: |
+          $tag = gh release view --repo SteveTheKiller/KillerPDF --json tagName -q .tagName
+          if (!$tag) { throw 'Could not read upstream release' }
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "built=$($LASTEXITCODE -eq 0)" >> $env:GITHUB_OUTPUT
+          exit 0
+
+      - uses: actions/checkout@v4
+        if: steps.v.outputs.built == 'False'
+        with:
+          repository: SteveTheKiller/KillerPDF
+          ref: ${{ steps.v.outputs.tag }}
+          path: src
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.v.outputs.built == 'False'
+        with:
+          global-json-file: src/global.json
+
+      - name: Remove grain
+        if: steps.v.outputs.built == 'False'
+        shell: pwsh
+        run: ./remove-grain.ps1 -Path src
+
+      - name: Build
+        if: steps.v.outputs.built == 'False'
+        shell: pwsh
+        run: dotnet publish src/KillerPDF.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o out
+
+      - name: Release
+        if: steps.v.outputs.built == 'False'
+        shell: pwsh
+        run: |
+          $tag = '${{ steps.v.outputs.tag }}'
+          gh release create $tag out/KillerPDF.exe (Get-Item out/*-src.zip) `
+            --repo $env:GITHUB_REPOSITORY --title "KillerPDF $tag (NO GRAIN)" `
+            --notes "Upstream https://github.com/SteveTheKiller/KillerPDF/releases/tag/$tag with the film grain removed. Needs the .NET 10 Desktop Runtime. The -src.zip is the patched source (GPL-3.0)."
