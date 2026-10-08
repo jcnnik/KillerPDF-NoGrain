@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: '0 6 * * *'   # daily; does nothing unless upstream shipped a new release
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: write
