@@ -24,9 +24,10 @@ jobs:
         run: |
           $tag = gh release view --repo SteveTheKiller/KillerPDF --json tagName -q .tagName
           if (!$tag) { throw 'Could not read upstream release' }
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          # Done only if our release has both public exes (older releases had a single exe).
+          $assets = gh release view $tag --repo $env:GITHUB_REPOSITORY --json assets -q '.assets[].name' 2>$null
           "tag=$tag" >> $env:GITHUB_OUTPUT
-          "built=$($LASTEXITCODE -eq 0)" >> $env:GITHUB_OUTPUT
+          "built=$($assets -contains 'KillerPDF-Portable.exe')" >> $env:GITHUB_OUTPUT
           exit 0
 
       - uses: actions/checkout@v4
@@ -49,13 +50,21 @@ jobs:
       - name: Build
         if: steps.v.outputs.built == 'False'
         shell: pwsh
-        run: dotnet publish src/KillerPDF.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o out
+        # Upstream's own packaging: installer (KillerPDF.exe) + portable, unsigned.
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File src/build/build-packages.ps1
+          if ($LASTEXITCODE) { throw 'Package build failed' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File src/build/bundle-source.ps1 `
+            -ProjectDir "$PWD/src" -Version ('${{ steps.v.outputs.tag }}' -replace '^v') -AppName KillerPDF -PublishDir "$PWD/out"
+          if ($LASTEXITCODE) { throw 'Source bundle failed' }
+          Copy-Item src/bin/Release/net10.0-windows/publish/KillerPDF*.exe out
 
       - name: Release
         if: steps.v.outputs.built == 'False'
         shell: pwsh
         run: |
           $tag = '${{ steps.v.outputs.tag }}'
-          gh release create $tag out/KillerPDF.exe (Get-Item out/*-src.zip) `
+          gh release delete $tag --repo $env:GITHUB_REPOSITORY --cleanup-tag --yes 2>$null
+          gh release create $tag out/KillerPDF.exe out/KillerPDF-Portable.exe (Get-Item out/*-src.zip) `
             --repo $env:GITHUB_REPOSITORY --title "KillerPDF $tag (NO GRAIN)" `
-            --notes "Upstream https://github.com/SteveTheKiller/KillerPDF/releases/tag/$tag with the film grain removed. Needs the .NET 10 Desktop Runtime. The -src.zip is the patched source (GPL-3.0)."
+            --notes "Upstream https://github.com/SteveTheKiller/KillerPDF/releases/tag/$tag with the film grain removed. KillerPDF.exe is the installer, KillerPDF-Portable.exe runs without installing. Builds are unsigned, so Windows SmartScreen may warn on first launch. The -src.zip is the patched source (GPL-3.0)."

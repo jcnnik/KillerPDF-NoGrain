@@ -2,7 +2,12 @@
 
 Unofficial build of [KillerPDF](https://github.com/SteveTheKiller/KillerPDF) with the film grain overlay removed. Everything else is untouched upstream code.
 
-Download the latest `KillerPDF.exe` from [Releases](../../releases). Requires the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
+Download from [Releases](../../releases), same two files as upstream:
+
+- `KillerPDF.exe`: installer
+- `KillerPDF-Portable.exe`: runs without installing
+
+The builds are unsigned (the upstream certificate is the author's), so Windows SmartScreen may warn on first launch: "More info", then "Run anyway".
 
 ## How the grain works upstream
 
@@ -36,7 +41,7 @@ dotnet publish path\to\KillerPDF\KillerPDF.csproj -c Release -r win-x64 --self-c
 
 ## Automation
 
-[`.github/workflows/build.yml`](.github/workflows/build.yml) runs daily (or manually from the Actions tab). When upstream has a release this repo doesn't have yet, it checks out that tag, runs the patch, builds a single-file exe and publishes it here as a release with the same tag.
+[`.github/workflows/build.yml`](.github/workflows/build.yml) runs daily (or manually from the Actions tab). When upstream has a release this repo doesn't have yet, it checks out that tag, runs the patch, builds the installer and portable exe with upstream's own packaging script, and publishes it here as a release with the same tag.
 
 GitHub pauses scheduled workflows after 60 days without repo activity. If releases stop showing up, re-enable the workflow in the Actions tab.
 
