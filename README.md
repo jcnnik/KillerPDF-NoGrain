@@ -36,12 +36,13 @@ Run it by hand on any checkout:
 
 ```powershell
 ./remove-grain.ps1 -Path path\to\KillerPDF
-dotnet publish path\to\KillerPDF\KillerPDF.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o out
+powershell -ExecutionPolicy Bypass -File path\to\KillerPDF\build\build-packages.ps1
+# output: path\to\KillerPDF\bin\Release\net10.0-windows\publish\
 ```
 
 ## Automation
 
-[`.github/workflows/build.yml`](.github/workflows/build.yml) runs daily (or manually from the Actions tab). When upstream has a release this repo doesn't have yet, it checks out that tag, runs the patch, builds the installer and portable exe with upstream's own packaging script, and publishes it here as a release with the same tag.
+[`.github/workflows/build.yml`](.github/workflows/build.yml) runs daily (or manually from the Actions tab). When upstream has a release this repo doesn't have yet, it checks out that tag, runs the patch, builds the installer and portable exe with upstream's own packaging script, and publishes them here as a release with the same tag.
 
 GitHub pauses scheduled workflows after 60 days without repo activity. If releases stop showing up, re-enable the workflow in the Actions tab.
 
